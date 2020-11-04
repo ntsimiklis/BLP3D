@@ -34,6 +34,7 @@ class publishUI():
         pm.window(self.window, e=True, width=250, height=50)
         pm.rowColumnLayout(numberOfColumns=2)
         self.source_directory = pm.workspace(q=True, dir=True) + 'Assets'
+        print(self.source_directory)
 
         self.all_assets = getAllAssets(self.source_directory)
         self.asset_dropdown = pm.optionMenu(label='Assets')
@@ -59,15 +60,15 @@ class publishUI():
         selected_asset = pm.optionMenu(self.asset_dropdown, q=True, v=True)
         selected_step = pm.optionMenu(self.step_dropdown, q=True, v=True)
         asset_dir = self.all_assets[selected_asset]
-        model_dir = asset_dir + '/Model'
+        model_dir = asset_dir + '/Model/Publish'
         if not os.path.isdir(model_dir):
-            os.mkdir(model_dir)
+            os.makedirs(model_dir)
 
         all_versions = getAllVersions(model_dir)
         if not all_versions:
             padded_number = '001'
             export_dir = model_dir + '/v%s' % padded_number
-            os.mkdir(export_dir)
+            os.makedirs(export_dir)
         else:
             # delete previous source file
             previous_dir = model_dir + '/v' + str(len(all_versions)).zfill(3)
@@ -81,7 +82,7 @@ class publishUI():
             padded_number = version_number.zfill(3)
             version_name = 'v' + padded_number
             export_dir = model_dir + '/' + version_name
-            os.mkdir(export_dir)
+            os.makedirs(export_dir)
 
         fbx_file = selected_asset + '_' + selected_step + '.fbx'
         export_file = export_dir + '/' + fbx_file
@@ -91,7 +92,7 @@ class publishUI():
 
         abc_file = selected_asset + '_' + selected_step + '.abc'
         export_file = export_dir + '/' + abc_file
-        cmds.AbcExport(jobArg=r'-frameRange 0 30 -stripNamespaces -uvWrite -worldSpace -writeVisibility -wholeFrameGeo -file %s'%export_file)
+        cmds.AbcExport(jobArg=r'-frameRange 0 0 -stripNamespaces -uvWrite -worldSpace -writeVisibility -wholeFrameGeo -file %s'%export_file)
 
         export_source = export_dir + '/' + selected_asset + '_' + selected_step + '_source_' + padded_number + '.mb'
         pm.system.saveAs(export_source)

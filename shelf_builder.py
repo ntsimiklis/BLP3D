@@ -38,7 +38,7 @@ class _shelf():
             cmds.shelfLayout(self.name, p="ShelfLayout")
 
 
-class blyShelf(_shelf):
+class blpShelf(_shelf):
     def build(self):
         self.addButton(label='renamer', icon='renamer.png', command='import renamer; reload(renamer); renamer.renameUI()')
         self.addButton(label='delNS', icon='delNS.png', command='import utils; reload(utils); utils.deleteNamespaces()')
