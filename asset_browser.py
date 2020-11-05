@@ -15,6 +15,8 @@ class mainUI(Qt.QDialog):
         super(mainUI, self).__init__(parent)
         self.setWindowTitle("Asset Browser")
         self.show_dir = pm.workspace(q=True, dir=True)
+
+
         # Right Layout
         right_layout = Qt.QHBoxLayout()
         self.tree_view = Qt.QTreeWidget()
@@ -33,7 +35,7 @@ class mainUI(Qt.QDialog):
         self.update_button.clicked.connect(self.updateTree)
 
         self.dropdown = Qt.QComboBox()
-        self.dropdown.addItems(['SWG', 'Bank', 'BLP'])
+        self.dropdown.addItems(['Assets', 'Shots'])
 
         self.update_box = Qt.QPushButton('update box')
         self.update_box.clicked.connect(self.updateBox)
@@ -79,7 +81,7 @@ class mainUI(Qt.QDialog):
             if tex_ver_list:
                 for tex_ver in tex_ver_list:
                     ver = "v" + str(tex_ver).zfill(3)
-                    paths = self.getFiles(tex_dir + ver, "png")
+                    paths = self.getFileSequence(tex_dir + ver)
                     for path in paths:
                         child = Qt.QTreeWidgetItem(child_tex, [" ", str(tex_ver), str(path)])
 
@@ -124,17 +126,22 @@ class mainUI(Qt.QDialog):
                 file_list.append(base_dir + '/' + f)
         return file_list
 
-    def fileSequence(self, base_dir):
+    def getFileSequence(self, base_dir):
+        file_list = []
         for f in os.listdir(base_dir):
+            f_ext = f.split('.')[-1]
             tkns = f.split('_')
             if f_ext == 'png':
                 if tkns[1] == '1001':
-                    fseq = tkns[0] + "<UDIM>" + tkns[-1]
+                    fseq = tkns[0] + "_<UDIM>_" + tkns[-1]
+                    file_list.append(fseq)
+        return file_list
 
 
 def run():
     main_window = maya_main_window()
     window = mainUI(parent=main_window)
+    window.resize(900, 500)
 
 
 
