@@ -1,14 +1,20 @@
+import os
+import pymel.core as pm
 import PySide2.QtWidgets as Qt
 import PySide2.QtGui as QtGui
 import PySide2.QtCore as QtCore
-import pymel.core as pm
-import os
+from maya import OpenMayaUI
+from shiboken2 import wrapInstance
+
+def maya_main_window():
+	main_window_ptr=OpenMayaUI.MQtUtil.mainWindow()
+	return wrapInstance(long(main_window_ptr), Qt.QWidget)
 
 class mainUI(Qt.QDialog):
     def __init__(self, parent=None):
         super(mainUI, self).__init__(parent)
         self.setWindowTitle("Asset Browser")
-        self.show_dir = "C:/Users/nick.tsimiklis/Documents/Nick/Projects/SWG/"
+        self.show_dir = pm.workspace(q=True, dir=True)
         # Right Layout
         right_layout = Qt.QHBoxLayout()
         self.tree_view = Qt.QTreeWidget()
@@ -21,7 +27,7 @@ class mainUI(Qt.QDialog):
         # Left Layout
         left_layout = Qt.QVBoxLayout()
         self.button = Qt.QPushButton('Import')
-        self.button.clicked.connect(self.getValue)
+        self.button.clicked.connect(self.importAsset)
 
         self.update_button = Qt.QPushButton('Refresh')
         self.update_button.clicked.connect(self.updateTree)
@@ -44,6 +50,7 @@ class mainUI(Qt.QDialog):
         main_layout.addLayout(right_layout)
 
         self.setLayout(main_layout)
+        self.show()
 
     def updateTree(self):
         self.tree_view.clear()
@@ -53,8 +60,8 @@ class mainUI(Qt.QDialog):
         for key, value in assets.items():
             parent = Qt.QTreeWidgetItem(self.tree_view, [str(key), " ", " "])
             parent.setExpanded(True)
-            model_dir = value + "/Model/Publish"
-            tex_dir = value + "/Texture"
+            model_dir = value + "/Model/Publish/"
+            tex_dir = value + "/Texture/"
             model_ver_list = None
             tex_ver_list = None
 
@@ -67,34 +74,34 @@ class mainUI(Qt.QDialog):
             if model_ver_list:
                 for model_ver in model_ver_list:
                     ver = "v" + str(model_ver).zfill(3)
-                    path = self.getFiles(model_dir + "/" + ver, "abc")[0]
+                    path = self.getFiles(model_dir + ver, "abc")[0]
                     child = Qt.QTreeWidgetItem(child_model, [" ", str(model_ver), str(path)])
             if tex_ver_list:
                 for tex_ver in tex_ver_list:
                     ver = "v" + str(tex_ver).zfill(3)
-                    path = self.getFiles(tex_dir + "/" + ver, "png")[0]
-                    child = Qt.QTreeWidgetItem(child_tex, [" ", str(tex_ver), str(path)])
-
+                    paths = self.getFiles(tex_dir + ver, "png")
+                    for path in paths:
+                        child = Qt.QTreeWidgetItem(child_tex, [" ", str(tex_ver), str(path)])
 
     def updateBox(self):
         self.dropdown.clear()
         self.dropdown.addItems(['lolol', 'trololol'])
 
-    def getValue(self):
+    def importAsset(self):
         val = self.tree_view.selectedItems()
         child = val[0].child(0)
         if not child:
             print('leafNode')
         else:
             print('parent')
-        print(val[0].text(1))
+        print(val[0].text(2))
+        pm.AbcImport(val[0].text(2))
 
     def getAllAssets(self, asset_dir):
         asset_dict = {}
         if asset_dir:
             for asset in os.listdir(asset_dir):
-                asset_dict[asset] = asset_dir + "/" + asset
-
+                asset_dict[asset] = asset_dir + asset
         return asset_dict
 
     def getAllVersions(self, base_dir):
@@ -114,13 +121,20 @@ class mainUI(Qt.QDialog):
         for f in os.listdir(base_dir):
             f_ext = f.split('.')[-1]
             if f_ext == extension:
-                file_list.append(base_dir + "/" + f)
-
+                file_list.append(base_dir + '/' + f)
         return file_list
 
+    def fileSequence(self, base_dir):
+        for f in os.listdir(base_dir):
+            tkns = f.split('_')
+            if f_ext == 'png':
+                if tkns[1] == '1001':
+                    fseq = tkns[0] + "<UDIM>" + tkns[-1]
 
 
+def run():
+    main_window = maya_main_window()
+    window = mainUI(parent=main_window)
 
-window = mainUI()
-window.show()
+
 

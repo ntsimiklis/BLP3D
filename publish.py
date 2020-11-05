@@ -34,7 +34,6 @@ class publishUI():
         pm.window(self.window, e=True, width=250, height=50)
         pm.rowColumnLayout(numberOfColumns=2)
         self.source_directory = pm.workspace(q=True, dir=True) + 'Assets'
-        print(self.source_directory)
 
         self.all_assets = getAllAssets(self.source_directory)
         self.asset_dropdown = pm.optionMenu(label='Assets')
