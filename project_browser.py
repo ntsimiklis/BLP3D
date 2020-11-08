@@ -14,11 +14,58 @@ def maya_main_window():
 class newAssetUI(Qt.QWidget):
     def __init__(self):
         Qt.QWidget.__init__(self)
+        layout = Qt.QVBoxLayout()
+        self.asset_name_field = Qt.QLineEdit()
+        layout.addWidget(Qt.QLabel("Asset Name"))
+        layout.addWidget(self.asset_name_field)
+
+        self.create_asset_button = Qt.QPushButton("Create Asset")
+        self.create_asset_button.clicked.connect(self.createAsset)
+        layout.addWidget(self.create_asset_button)
+        self.setLayout(layout)
+
+    def createAsset(self):
+        self.show_dir = pm.workspace(q=True, dir=True)
+        asset_name = self.asset_name_field.text()
+        asset_dir = self.show_dir + '/Assets/' + asset_name
+        os.makedirs(asset_dir)
+
+        asset_task_list = ["Sandbox", "Model", "Texture", "Lookdev", "Rig", "Anim"]
+
+        for task in asset_task_list:
+            task_dir = asset_dir + "/%s"%task
+            os.makedirs(task_dir)
+
+class newShotUI(Qt.QWidget):
+    def __init__(self):
+        Qt.QWidget.__init__(self)
+        layout = Qt.QVBoxLayout()
+        self.shot_name_field = Qt.QLineEdit()
+        layout.addWidget(Qt.QLabel("Shot Name"))
+        layout.addWidget(self.shot_name_field)
+
+        self.create_shot_button = Qt.QPushButton("Create Shot")
+        self.create_shot_button.clicked.connect(self.createShot)
+        layout.addWidget(self.create_shot_button)
+        self.setLayout(layout)
+
+    def createShot(self):
+        self.show_dir = pm.workspace(q=True, dir=True)
+        shot_name = self.shot_name_field.text()
+        shot_dir = self.show_dir + '/Shots/' + shot_name
+        os.makedirs(shot_dir)
+
+        shot_task_list = ["Sandbox", "Crowd", "Light", "Anim", "Camera"]
+
+        for task in shot_task_list:
+            task_dir = shot_dir + "/%s"%task
+            os.makedirs(task_dir)
+
 
 class mainUI(Qt.QDialog):
     def __init__(self, parent=None):
         super(mainUI, self).__init__(parent)
-        self.setWindowTitle("Asset Browser")
+        self.setWindowTitle("Project Browser")
         self.show_dir = pm.workspace(q=True, dir=True)
 
 
@@ -82,12 +129,13 @@ class mainUI(Qt.QDialog):
             child_shots = Qt.QTreeWidgetItem(shotParent, [" ", str(key), " "])
 
     def newShot(self):
-        self.dropdown.clear()
-        self.dropdown.addItems(['lolol', 'trololol'])
+        self.w = newShotUI()
+        self.w.resize(500,100)
+        self.w.show()
 
     def newAsset(self):
         self.w = newAssetUI()
-        self.w.resize(500,500)
+        self.w.resize(500,100)
         self.w.show()
 
     def getAllAssets(self, asset_dir):
