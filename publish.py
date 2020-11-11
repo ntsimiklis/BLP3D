@@ -43,7 +43,7 @@ class publishUI():
 
         pm.separator(height=20, style='none')
 
-        self.all_steps = ['model']
+        self.all_steps = ['model', 'anim', 'rig', 'materials', 'light', 'camera']
         self.step_dropdown = pm.optionMenu(label='Step')
         for step in self.all_steps:
             pm.menuItem(label=step)
@@ -59,7 +59,7 @@ class publishUI():
         selected_asset = pm.optionMenu(self.asset_dropdown, q=True, v=True)
         selected_step = pm.optionMenu(self.step_dropdown, q=True, v=True)
         asset_dir = self.all_assets[selected_asset]
-        model_dir = asset_dir + '/Model/Publish'
+        model_dir = asset_dir + '/Model'
         if not os.path.isdir(model_dir):
             os.makedirs(model_dir)
 

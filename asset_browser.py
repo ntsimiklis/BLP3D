@@ -24,8 +24,6 @@ class mainUI(Qt.QDialog):
 
         self.tree_view.setHeaderLabels(['name', 'version', 'path'])
 
-        self.updateTree()
-
         # Left Layout
         left_layout = Qt.QVBoxLayout()
         self.button = Qt.QPushButton('Import')
@@ -34,13 +32,14 @@ class mainUI(Qt.QDialog):
         self.update_button = Qt.QPushButton('Refresh')
         self.update_button.clicked.connect(self.updateTree)
 
-        self.dropdown = Qt.QComboBox()
-        self.dropdown.addItems(['Assets', 'Shots'])
+        self.context_toggle = Qt.QComboBox()
+        self.context_toggle.addItems(['Assets', 'Shots'])
+        self.context_toggle.currentIndexChanged.connect(self.updateTree)
 
         self.update_box = Qt.QPushButton('update box')
         self.update_box.clicked.connect(self.updateBox)
 
-        left_layout.addWidget(self.dropdown)
+        left_layout.addWidget(self.context_toggle)
         left_layout.addWidget(self.button)
         left_layout.addWidget(self.update_button)
         # left_layout.addWidget(self.update_box)
@@ -52,18 +51,44 @@ class mainUI(Qt.QDialog):
         main_layout.addLayout(right_layout)
 
         self.setLayout(main_layout)
+        self.updateTree()
         self.show()
 
-    def updateTree(self):
+    @QtCore.Slot(Qt.QComboBox)
+    def updateTree(self, *args):
+        current_context = self.context_toggle.currentText()
+
         self.tree_view.clear()
-        asset_dir = self.show_dir + "Assets/"
+        asset_dir = self.show_dir + "%s/"%current_context
         assets = self.getAllAssets(asset_dir)
 
-        for key, value in assets.items():
+        for key in sorted(assets):
             parent = Qt.QTreeWidgetItem(self.tree_view, [str(key), " ", " "])
             parent.setExpanded(True)
-            model_dir = value + "/Model/Publish/"
-            tex_dir = value + "/Texture/"
+            asset_path = assets[key]
+            task_list = []
+            if current_context == 'Assets':
+                task_list = ["Model", "Texture", "Lookdev", "Rig", "Anim", "Crowd"]
+            else:
+                task_list = ["Crowd", "Light", "Anim", "Camera"]
+
+            for task in task_list:
+                task_dir = asset_path + "/%s/"%task
+                task_ver_list = None
+                task_child = Qt.QTreeWidgetItem(parent, ["%s"%task, " ", " "])
+                if os.path.isdir(task_dir):
+                    task_ver_list = self.getAllVersions(task_dir)
+                if task_ver_list:
+                    for version in task_ver_list:
+                        ver = "v" + str(version).zfill(3)
+                        paths = self.getFiles(task_dir + ver, task)
+                        if paths != None:
+                            for path in paths:
+                                child = Qt.QTreeWidgetItem(task_child, [" ", str(version), str(path)])
+
+            '''
+            model_dir = asset_path + "/Model/"
+            tex_dir = asset_path + "/Texture/"
             model_ver_list = None
             tex_ver_list = None
 
@@ -84,6 +109,8 @@ class mainUI(Qt.QDialog):
                     paths = self.getFileSequence(tex_dir + ver)
                     for path in paths:
                         child = Qt.QTreeWidgetItem(child_tex, [" ", str(tex_ver), str(path)])
+            '''
+
 
     def updateBox(self):
         self.dropdown.clear()
@@ -118,20 +145,25 @@ class mainUI(Qt.QDialog):
                 all_versions[version_num] = version_dir
         return all_versions
 
-    def getFiles(self, base_dir, extension):
-        file_list = []
-        for f in os.listdir(base_dir):
-            f_ext = f.split('.')[-1]
-            if f_ext == extension:
-                file_list.append(base_dir + '/' + f)
-        return file_list
+    def getFiles(self, base_dir, task):
+        TASK_EXTENSIONS = {'Model':'abc', "Texture":"png", "Lookdev":"ma", "Rig":"ma", "Anim":"fbx", "Crowd":"gscb", "Light":"ma", "Camera":"ma" }
+        extension = TASK_EXTENSIONS[task]
+        if task == 'Texture':
+            return self.getFileSequence(base_dir, extension)
+        else:
+            file_list = []
+            for f in os.listdir(base_dir):
+                f_ext = f.split('.')[-1]
+                if f_ext == extension:
+                    file_list.append(base_dir + '/' + f)
+            return file_list
 
-    def getFileSequence(self, base_dir):
+    def getFileSequence(self, base_dir, extension):
         file_list = []
         for f in os.listdir(base_dir):
             f_ext = f.split('.')[-1]
             tkns = f.split('_')
-            if f_ext == 'png':
+            if f_ext == extension:
                 if tkns[1] == '1001':
                     fseq = tkns[0] + "_<UDIM>_" + tkns[-1]
                     file_list.append(fseq)

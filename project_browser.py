@@ -1,4 +1,5 @@
 import os
+import collections
 import pymel.core as pm
 import PySide2.QtWidgets as Qt
 import PySide2.QtGui as QtGui
@@ -30,10 +31,16 @@ class newAssetUI(Qt.QWidget):
         asset_dir = self.show_dir + '/Assets/' + asset_name
         os.makedirs(asset_dir)
 
-        asset_task_list = ["Sandbox", "Model", "Texture", "Lookdev", "Rig", "Anim"]
+        asset_task_list = ["Sandbox", "Model", "Texture", "Lookdev", "Rig", "Anim", "Crowd"]
 
         for task in asset_task_list:
             task_dir = asset_dir + "/%s"%task
+            os.makedirs(task_dir)
+
+        #Make Crowd Dirs
+        crowd_tasks = ['Motion', 'Character', 'Geo', 'Material']
+        for crowd_task in crowd_tasks:
+            task_dir = asset_dir + "/%s"%crowd_task
             os.makedirs(task_dir)
 
 class newShotUI(Qt.QWidget):
@@ -123,9 +130,9 @@ class mainUI(Qt.QDialog):
         shotParent = Qt.QTreeWidgetItem(self.tree_view, ["Shots", " ", " "])
         assetParent.setExpanded(True)
         shotParent.setExpanded(True)
-        for key, value in assets.items():
+        for key in sorted(assets):
             child_assets = Qt.QTreeWidgetItem(assetParent, [" ", str(key), " "])
-        for key, value in shots.items():
+        for key in sorted(shots):
             child_shots = Qt.QTreeWidgetItem(shotParent, [" ", str(key), " "])
 
     def newShot(self):
@@ -143,7 +150,11 @@ class mainUI(Qt.QDialog):
         if asset_dir:
             for asset in os.listdir(asset_dir):
                 asset_dict[asset] = asset_dir + asset
-        return asset_dict
+        sorted_dict = {}
+        for key in sorted(asset_dict):
+            sorted_dict[key] = asset_dict[key]
+
+        return sorted_dict
 
 
 def run():
