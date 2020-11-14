@@ -7,6 +7,8 @@ import PySide2.QtCore as QtCore
 from maya import OpenMayaUI
 from shiboken2 import wrapInstance
 
+import utils
+
 def maya_main_window():
 	main_window_ptr=OpenMayaUI.MQtUtil.mainWindow()
 	return wrapInstance(long(main_window_ptr), Qt.QWidget)
@@ -26,19 +28,19 @@ class newAssetUI(Qt.QWidget):
         self.setLayout(layout)
 
     def createAsset(self):
-        self.show_dir = pm.workspace(q=True, dir=True)
+        self.show_dir = utils.getWorkspace()
         asset_name = self.asset_name_field.text()
         asset_dir = self.show_dir + '/Assets/' + asset_name
         os.makedirs(asset_dir)
 
-        asset_task_list = ["Sandbox", "Model", "Texture", "Lookdev", "Rig", "Anim", "Crowd"]
+        asset_task_list = ["Sandbox", "Model", "Texture", "Materials", "Rig", "Anim", "Crowd"]
 
         for task in asset_task_list:
             task_dir = asset_dir + "/%s"%task
             os.makedirs(task_dir)
 
         #Make Crowd Dirs
-        crowd_tasks = ['Motion', 'Character', 'Geo', 'Material']
+        crowd_tasks = ['Motion', 'Character', 'Geo', 'Material', 'Sim']
         for crowd_task in crowd_tasks:
             task_dir = asset_dir + "/%s"%crowd_task
             os.makedirs(task_dir)
@@ -57,12 +59,12 @@ class newShotUI(Qt.QWidget):
         self.setLayout(layout)
 
     def createShot(self):
-        self.show_dir = pm.workspace(q=True, dir=True)
+        self.show_dir = utils.getWorkspace()
         shot_name = self.shot_name_field.text()
         shot_dir = self.show_dir + '/Shots/' + shot_name
         os.makedirs(shot_dir)
 
-        shot_task_list = ["Sandbox", "Crowd", "Light", "Anim", "Camera"]
+        shot_task_list = ["Sandbox", "Plate", "Crowd", "Light", "Anim", "Camera"]
 
         for task in shot_task_list:
             task_dir = shot_dir + "/%s"%task
@@ -73,8 +75,7 @@ class mainUI(Qt.QDialog):
     def __init__(self, parent=None):
         super(mainUI, self).__init__(parent)
         self.setWindowTitle("Project Browser")
-        self.show_dir = pm.workspace(q=True, dir=True)
-
+        self.show_dir = utils.getWorkspace()
 
         # Right Layout
         right_layout = Qt.QHBoxLayout()
@@ -100,7 +101,7 @@ class mainUI(Qt.QDialog):
 
 
         self.dropdown = Qt.QComboBox()
-        self.dropdown.addItems(['Assets', 'Shots'])
+        self.dropdown.addItems(['SWG', 'Bank'])
 
 
 
@@ -122,10 +123,10 @@ class mainUI(Qt.QDialog):
     def updateTree(self):
         self.tree_view.clear()
 
-        asset_dir = self.show_dir + "Assets/"
+        asset_dir = self.show_dir + "/Assets/"
         assets = self.getAllAssets(asset_dir)
         assetParent = Qt.QTreeWidgetItem(self.tree_view, ["Assets", " ", " "])
-        shot_dir = self.show_dir + "Shots/"
+        shot_dir = self.show_dir + "/Shots/"
         shots = self.getAllAssets(shot_dir)
         shotParent = Qt.QTreeWidgetItem(self.tree_view, ["Shots", " ", " "])
         assetParent.setExpanded(True)

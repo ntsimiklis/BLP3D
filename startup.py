@@ -37,11 +37,9 @@ class SetProjectUI(Qt.QDialog):
             workspace_path = str(dialog.selectedFiles()[0])
 
         if workspace_path:
-            pm.workspace.chdir(workspace_path)
-            pm.workspace(workspace_path, openWorkspace=True)
-
-
-        print pm.workspace(q=True, dir=True)
+            #pm.workspace.chdir(workspace_path)
+            #pm.workspace(workspace_path, openWorkspace=True)
+            os.environ['WS_PATH'] = workspace_path
         self.close()
 
 

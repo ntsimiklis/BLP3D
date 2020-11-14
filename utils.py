@@ -1,6 +1,19 @@
+import os
 import pymel.core as pm
 import maya.cmds as cmds
 
+
+def getWorkspace():
+    try:
+        path = os.getenv('WS_PATH')
+    except:
+        path = None
+        '''
+        path = None
+    if path == None:
+        path = pm.workspace(q=True, dir=True)
+        '''
+    return path
 
 def deleteNamespaces():
     cmds.namespace(set=':')

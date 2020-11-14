@@ -1,10 +1,13 @@
 import os
+from functools import partial
 import pymel.core as pm
 import PySide2.QtWidgets as Qt
 import PySide2.QtGui as QtGui
 import PySide2.QtCore as QtCore
 from maya import OpenMayaUI
 from shiboken2 import wrapInstance
+
+import utils
 
 def maya_main_window():
 	main_window_ptr=OpenMayaUI.MQtUtil.mainWindow()
@@ -14,8 +17,7 @@ class mainUI(Qt.QDialog):
     def __init__(self, parent=None):
         super(mainUI, self).__init__(parent)
         self.setWindowTitle("Asset Browser")
-        self.show_dir = pm.workspace(q=True, dir=True)
-
+        self.show_dir = utils.getWorkspace()
 
         # Right Layout
         right_layout = Qt.QHBoxLayout()
@@ -36,13 +38,9 @@ class mainUI(Qt.QDialog):
         self.context_toggle.addItems(['Assets', 'Shots'])
         self.context_toggle.currentIndexChanged.connect(self.updateTree)
 
-        self.update_box = Qt.QPushButton('update box')
-        self.update_box.clicked.connect(self.updateBox)
-
         left_layout.addWidget(self.context_toggle)
         left_layout.addWidget(self.button)
         left_layout.addWidget(self.update_button)
-        # left_layout.addWidget(self.update_box)
 
         # Main Layout
         main_layout = Qt.QHBoxLayout()
@@ -59,7 +57,7 @@ class mainUI(Qt.QDialog):
         current_context = self.context_toggle.currentText()
 
         self.tree_view.clear()
-        asset_dir = self.show_dir + "%s/"%current_context
+        asset_dir = self.show_dir + "/%s/"%current_context
         assets = self.getAllAssets(asset_dir)
 
         for key in sorted(assets):
@@ -68,9 +66,9 @@ class mainUI(Qt.QDialog):
             asset_path = assets[key]
             task_list = []
             if current_context == 'Assets':
-                task_list = ["Model", "Texture", "Lookdev", "Rig", "Anim", "Crowd"]
+                task_list = ["Model", "Texture", "Materials", "Rig", "Anim", "Crowd"]
             else:
-                task_list = ["Crowd", "Light", "Anim", "Camera"]
+                task_list = ["Plate", "Crowd", "Light", "Anim", "Camera"]
 
             for task in task_list:
                 task_dir = asset_path + "/%s/"%task
@@ -79,52 +77,62 @@ class mainUI(Qt.QDialog):
                 if os.path.isdir(task_dir):
                     task_ver_list = self.getAllVersions(task_dir)
                 if task_ver_list:
+                    self.version_box = Qt.QComboBox()
+
+                    for version in task_ver_list:
+                        self.version_box.addItem(str(version))
+                    self.version_box.setCurrentIndex(len(task_ver_list)-1)
+
+                    ver = "v" + str(max(task_ver_list)).zfill(3)
+                    paths = self.getFiles(task_dir + ver, task)
+                    if paths:
+                        child = Qt.QTreeWidgetItem(task_child, [" ", " ", str(paths[0])])
+                        child.setFlags(child.flags() | QtCore.Qt.ItemIsEditable)
+                        self.tree_view.setItemWidget(child, 1, self.version_box)
+                        #partial(self.updatePathColumn(self.version_box, child))
+                        #lambda widget = self.version_box: self.updatePathColumn(widget, child)
+                        self.version_box.currentIndexChanged.connect(partial(self.updatePathColumn,self.version_box, child))
+                    '''
                     for version in task_ver_list:
                         ver = "v" + str(version).zfill(3)
                         paths = self.getFiles(task_dir + ver, task)
+
                         if paths != None:
                             for path in paths:
                                 child = Qt.QTreeWidgetItem(task_child, [" ", str(version), str(path)])
+                    '''
 
-            '''
-            model_dir = asset_path + "/Model/"
-            tex_dir = asset_path + "/Texture/"
-            model_ver_list = None
-            tex_ver_list = None
-
-            child_model = Qt.QTreeWidgetItem(parent, ['Model', " ", " "])
-            child_tex = Qt.QTreeWidgetItem(parent, ['Texture', " ", " "])
-            if os.path.isdir(model_dir):
-                model_ver_list = self.getAllVersions(model_dir)
-            if os.path.isdir(tex_dir):
-                tex_ver_list = self.getAllVersions(tex_dir)
-            if model_ver_list:
-                for model_ver in model_ver_list:
-                    ver = "v" + str(model_ver).zfill(3)
-                    path = self.getFiles(model_dir + ver, "abc")[0]
-                    child = Qt.QTreeWidgetItem(child_model, [" ", str(model_ver), str(path)])
-            if tex_ver_list:
-                for tex_ver in tex_ver_list:
-                    ver = "v" + str(tex_ver).zfill(3)
-                    paths = self.getFileSequence(tex_dir + ver)
-                    for path in paths:
-                        child = Qt.QTreeWidgetItem(child_tex, [" ", str(tex_ver), str(path)])
-            '''
-
-
-    def updateBox(self):
-        self.dropdown.clear()
-        self.dropdown.addItems(['lolol', 'trololol'])
+    def updatePathColumn(self, widget, column, *args):
+        #current_version = widget + 1
+        current_version = widget.currentText()
+        ver = "v" + str(current_version).zfill(3)
+        task_name = column.parent().text(0)
+        asset_name = column.parent().parent().text(0)
+        current_context = self.context_toggle.currentText()
+        ver_dir = self.show_dir + "/%s/%s/%s/%s"%(current_context, asset_name, task_name, ver)
+        paths = self.getFiles(ver_dir, task_name)
+        if paths:
+            column.setText(2, str(paths[0]))
 
     def importAsset(self):
         val = self.tree_view.selectedItems()
         child = val[0].child(0)
         if not child:
-            print('leafNode')
+            print('Attempting Import')
         else:
-            print('parent')
+            print('Please Select a File')
+            return
         print(val[0].text(2))
-        pm.AbcImport(val[0].text(2))
+        task = val[0].parent().text(0)
+        file = val[0].text(2)
+        if task == 'Model':
+            pm.AbcImport(file)
+        elif task == 'Anim':
+            pm.FBXImport('-file', file, '-s')
+        elif task == 'Rig':
+            pm.createReference(file)
+        else:
+            pm.importFile(file)
 
     def getAllAssets(self, asset_dir):
         asset_dict = {}
@@ -146,9 +154,9 @@ class mainUI(Qt.QDialog):
         return all_versions
 
     def getFiles(self, base_dir, task):
-        TASK_EXTENSIONS = {'Model':'abc', "Texture":"png", "Lookdev":"ma", "Rig":"ma", "Anim":"fbx", "Crowd":"gscb", "Light":"ma", "Camera":"ma" }
+        TASK_EXTENSIONS = {'Model':'abc', "Texture":"png", "Plate":"png", "Materials":"mb", "Rig":"mb", "Anim":"fbx", "Crowd":"gscb", "Light":"mb", "Camera":"mb" }
         extension = TASK_EXTENSIONS[task]
-        if task == 'Texture':
+        if task == 'Texture' or task == 'Plate':
             return self.getFileSequence(base_dir, extension)
         else:
             file_list = []
@@ -156,6 +164,7 @@ class mainUI(Qt.QDialog):
                 f_ext = f.split('.')[-1]
                 if f_ext == extension:
                     file_list.append(base_dir + '/' + f)
+
             return file_list
 
     def getFileSequence(self, base_dir, extension):
@@ -168,7 +177,6 @@ class mainUI(Qt.QDialog):
                     fseq = tkns[0] + "_<UDIM>_" + tkns[-1]
                     file_list.append(fseq)
         return file_list
-
 
 def run():
     main_window = maya_main_window()
