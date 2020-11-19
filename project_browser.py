@@ -42,7 +42,7 @@ class newAssetUI(Qt.QWidget):
         #Make Crowd Dirs
         crowd_tasks = ['Motion', 'Character', 'Geo', 'Material', 'Sim']
         for crowd_task in crowd_tasks:
-            task_dir = asset_dir + "/%s"%crowd_task
+            task_dir = asset_dir + "/Crowd/%s"%crowd_task
             os.makedirs(task_dir)
 
 class newShotUI(Qt.QWidget):
@@ -64,11 +64,37 @@ class newShotUI(Qt.QWidget):
         shot_dir = self.show_dir + '/Shots/' + shot_name
         os.makedirs(shot_dir)
 
-        shot_task_list = ["Sandbox", "Plate", "Crowd", "Light", "Anim", "Camera"]
+        shot_task_list = ["Sandbox", "Plate", "Crowd", "Light", "Anim", "Camera", "Render", "SlapComp"]
 
         for task in shot_task_list:
             task_dir = shot_dir + "/%s"%task
             os.makedirs(task_dir)
+
+class newCrowdUI(Qt.QWidget):
+    def __init__(self):
+        Qt.QWidget.__init__(self)
+        layout = Qt.QVBoxLayout()
+        self.crowd_name_field = Qt.QLineEdit()
+        layout.addWidget(Qt.QLabel("Name"))
+        layout.addWidget(self.crowd_name_field)
+
+        self.context_toggle = Qt.QComboBox()
+        self.context_toggle.addItems(['Caches', 'Motions'])
+        layout.addWidget(self.context_toggle)
+
+        self.create_shot_button = Qt.QPushButton("Create")
+        self.create_shot_button.clicked.connect(self.createCrowd)
+        layout.addWidget(self.create_shot_button)
+        self.setLayout(layout)
+
+    def createCrowd(self):
+        current_context = self.context_toggle.currentText()
+
+        self.show_dir = utils.getWorkspace()
+        crowd_name = self.crowd_name_field.text()
+        crowd_dir = self.show_dir + '/Crowd/' + current_context + '/%s/'%crowd_name
+        os.makedirs(crowd_dir)
+
 
 
 class mainUI(Qt.QDialog):
@@ -95,6 +121,8 @@ class mainUI(Qt.QDialog):
         self.new_shot_button = Qt.QPushButton('New Shot')
         self.new_shot_button.clicked.connect(self.newShot)
 
+        self.new_shot_button = Qt.QPushButton('New Crowd')
+        self.new_shot_button.clicked.connect(self.newCrowd)
 
         self.update_button = Qt.QPushButton('Refresh')
         self.update_button.clicked.connect(self.updateTree)
@@ -129,12 +157,30 @@ class mainUI(Qt.QDialog):
         shot_dir = self.show_dir + "/Shots/"
         shots = self.getAllAssets(shot_dir)
         shotParent = Qt.QTreeWidgetItem(self.tree_view, ["Shots", " ", " "])
+        crowd_cache_dir = self.show_dir + "/Crowd/Caches/"
+        crowd_motions_dir = self.show_dir + "/Crowd/Motions/"
+        caches = self.getAllAssets(crowd_cache_dir)
+        motions = self.getAllAssets(crowd_motions_dir)
+        cacheParent = Qt.QTreeWidgetItem(self.tree_view, ["Crowd Caches", " ", " "])
+        motionParent = Qt.QTreeWidgetItem(self.tree_view, ["Crowd Motions", " ", " "])
+
+        cacheParent.setExpanded(True)
+        motionParent.setExpanded(True)
         assetParent.setExpanded(True)
         shotParent.setExpanded(True)
         for key in sorted(assets):
             child_assets = Qt.QTreeWidgetItem(assetParent, [" ", str(key), " "])
         for key in sorted(shots):
             child_shots = Qt.QTreeWidgetItem(shotParent, [" ", str(key), " "])
+        for key in sorted(caches):
+            child_caches = Qt.QTreeWidgetItem(cacheParent, [" ", str(key), " "])
+        for key in sorted(motions):
+            child_motions = Qt.QTreeWidgetItem(motionParent, [" ", str(key), " "])
+
+    def newCrowd(self):
+        self.w = newCrowdUI()
+        self.w.resize(500,100)
+        self.w.show()
 
     def newShot(self):
         self.w = newShotUI()
@@ -149,8 +195,11 @@ class mainUI(Qt.QDialog):
     def getAllAssets(self, asset_dir):
         asset_dict = {}
         if asset_dir:
-            for asset in os.listdir(asset_dir):
-                asset_dict[asset] = asset_dir + asset
+            try:
+                for asset in os.listdir(asset_dir):
+                    asset_dict[asset] = asset_dir + asset
+            except:
+                pass
         sorted_dict = {}
         for key in sorted(asset_dict):
             sorted_dict[key] = asset_dict[key]

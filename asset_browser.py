@@ -1,6 +1,7 @@
 import os
 from functools import partial
 import pymel.core as pm
+import maya.mel as mel
 import PySide2.QtWidgets as Qt
 import PySide2.QtGui as QtGui
 import PySide2.QtCore as QtCore
@@ -35,7 +36,7 @@ class mainUI(Qt.QDialog):
         self.update_button.clicked.connect(self.updateTree)
 
         self.context_toggle = Qt.QComboBox()
-        self.context_toggle.addItems(['Assets', 'Shots'])
+        self.context_toggle.addItems(['Assets', 'Shots', 'Crowd'])
         self.context_toggle.currentIndexChanged.connect(self.updateTree)
 
         left_layout.addWidget(self.context_toggle)
@@ -64,43 +65,61 @@ class mainUI(Qt.QDialog):
             parent = Qt.QTreeWidgetItem(self.tree_view, [str(key), " ", " "])
             parent.setExpanded(True)
             asset_path = assets[key]
-            task_list = []
+
             if current_context == 'Assets':
                 task_list = ["Model", "Texture", "Materials", "Rig", "Anim", "Crowd"]
+
             else:
                 task_list = ["Plate", "Crowd", "Light", "Anim", "Camera"]
 
-            for task in task_list:
-                task_dir = asset_path + "/%s/"%task
-                task_ver_list = None
-                task_child = Qt.QTreeWidgetItem(parent, ["%s"%task, " ", " "])
-                if os.path.isdir(task_dir):
-                    task_ver_list = self.getAllVersions(task_dir)
-                if task_ver_list:
-                    self.version_box = Qt.QComboBox()
+            if current_context == 'Crowd':
+                asset_path = asset_path + '/'
+                asset_list = self.getAllAssets(asset_path)
+                for asset in sorted(asset_list):
+                    asset_item = Qt.QTreeWidgetItem(parent, [str(asset), " ", " "])
+                    asset_directory = asset_list[asset] + '/'
+                    self.populateTree(asset_directory, key, asset_item)
 
-                    for version in task_ver_list:
-                        self.version_box.addItem(str(version))
-                    self.version_box.setCurrentIndex(len(task_ver_list)-1)
+            else:
+                for task in task_list:
+                    task_dir = asset_path + "/%s/"%task
+                    task_ver_list = None
+                    task_child = Qt.QTreeWidgetItem(parent, ["%s"%task, " ", " "])
 
-                    ver = "v" + str(max(task_ver_list)).zfill(3)
-                    paths = self.getFiles(task_dir + ver, task)
-                    if paths:
-                        child = Qt.QTreeWidgetItem(task_child, [" ", " ", str(paths[0])])
-                        child.setFlags(child.flags() | QtCore.Qt.ItemIsEditable)
-                        self.tree_view.setItemWidget(child, 1, self.version_box)
-                        #partial(self.updatePathColumn(self.version_box, child))
-                        #lambda widget = self.version_box: self.updatePathColumn(widget, child)
-                        self.version_box.currentIndexChanged.connect(partial(self.updatePathColumn,self.version_box, child))
-                    '''
-                    for version in task_ver_list:
-                        ver = "v" + str(version).zfill(3)
-                        paths = self.getFiles(task_dir + ver, task)
+                    if task == "Crowd":
+                        crowd_list = ['Motion', 'Character', 'Geo', 'Material', 'Sim']
+                        for crowd_task in crowd_list:
+                            crowd_child = Qt.QTreeWidgetItem(task_child, ["%s"%crowd_task, " ", " "])
+                            crowd_dir = task_dir + "%s/"%crowd_task
 
-                        if paths != None:
-                            for path in paths:
-                                child = Qt.QTreeWidgetItem(task_child, [" ", str(version), str(path)])
-                    '''
+                            self.populateTree(crowd_dir, crowd_task, crowd_child)
+
+                    #This could be broken out into a function to be reused, instead of copy/pasted
+                    else:
+                        self.populateTree(task_dir, task, task_child)
+
+
+
+    def populateTree(self,task_dir, task, task_child, *args):
+        task_ver_list = None
+        if os.path.isdir(task_dir):
+            task_ver_list = self.getAllVersions(task_dir)
+        if task_ver_list:
+            self.version_box = Qt.QComboBox()
+
+            for version in task_ver_list:
+                self.version_box.addItem(str(version))
+            self.version_box.setCurrentIndex(len(task_ver_list) - 1)
+
+            ver = "v" + str(max(task_ver_list)).zfill(3)
+            paths = self.getFiles(task_dir + ver, task)
+            if paths:
+                child = Qt.QTreeWidgetItem(task_child, [" ", " ", str(paths[0])])
+                child.setFlags(child.flags() | QtCore.Qt.ItemIsEditable)
+                self.tree_view.setItemWidget(child, 1, self.version_box)
+                # partial(self.updatePathColumn(self.version_box, child))
+                # lambda widget = self.version_box: self.updatePathColumn(widget, child)
+                self.version_box.currentIndexChanged.connect(partial(self.updatePathColumn, self.version_box, child))
 
     def updatePathColumn(self, widget, column, *args):
         #current_version = widget + 1
@@ -122,7 +141,7 @@ class mainUI(Qt.QDialog):
         else:
             print('Please Select a File')
             return
-        print(val[0].text(2))
+
         task = val[0].parent().text(0)
         file = val[0].text(2)
         if task == 'Model':
@@ -131,6 +150,22 @@ class mainUI(Qt.QDialog):
             pm.FBXImport('-file', file, '-s')
         elif task == 'Rig':
             pm.createReference(file)
+        elif task == 'Character':
+            mel.eval('addTheCrowdManagerNode;')
+            mel.eval('addCrowdEntityTypeNode();')
+            node = pm.ls(sl=1)[0]
+            pm.setAttr('%s.characterFile' % node,
+                       '%s'%file)
+            pm.setAttr('%s.renderFilter' % node, 3)
+        elif task == 'Sim':
+            mel.eval('glmSimulationCacheLibraryCmd;')
+        elif task == 'Plate':
+            camera = pm.ls(sl=1)
+            if camera:
+                camera=camera[0]
+                ip = pm.imagePlane(c=camera, fn=file, lt=camera, n='imageplane_plate')
+                pm.setAttr(str(ip[0]) + '.useFrameExtension', 1)
+                pm.setAttr(str(ip[0])+ '.displayOnlyIfCurrent', 1)
         else:
             pm.importFile(file)
 
@@ -154,7 +189,10 @@ class mainUI(Qt.QDialog):
         return all_versions
 
     def getFiles(self, base_dir, task):
-        TASK_EXTENSIONS = {'Model':'abc', "Texture":"png", "Plate":"png", "Materials":"mb", "Rig":"mb", "Anim":"fbx", "Crowd":"gscb", "Light":"mb", "Camera":"mb" }
+        TASK_EXTENSIONS = {'Model':'abc', "Texture":"png", "Plate":"png", "Materials":"mb",
+                           "Rig":"mb", "Anim":"fbx", "Crowd":"gscb", "Light":"mb", "Camera":"mb",
+                           'Motion':"gmo", 'Character':"gcha", 'Geo':"gcg", 'Material':"mb", 'Sim':"gscb",
+                           'Caches':'gscb', 'Motions':'fbx'}
         extension = TASK_EXTENSIONS[task]
         if task == 'Texture' or task == 'Plate':
             return self.getFileSequence(base_dir, extension)
@@ -171,11 +209,11 @@ class mainUI(Qt.QDialog):
         file_list = []
         for f in os.listdir(base_dir):
             f_ext = f.split('.')[-1]
-            tkns = f.split('_')
+            tkns = f.split('.')
             if f_ext == extension:
-                if tkns[1] == '1001':
-                    fseq = tkns[0] + "_<UDIM>_" + tkns[-1]
-                    file_list.append(fseq)
+                if tkns[-2] == '1001':
+                    #fseq = tkns[0] + ".<UDIM>." + tkns[-1]
+                    file_list.append(base_dir + '/' + f)
         return file_list
 
 def run():

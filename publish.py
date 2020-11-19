@@ -52,10 +52,11 @@ class PublishUI(Qt.QDialog):
         self.update_button.clicked.connect(self.refreshDropdowns)
 
         self.context_toggle = Qt.QComboBox()
-        self.context_toggle.addItems(['Assets', 'Shots'])
+        self.context_toggle.addItems(['Assets', 'Shots', 'Crowd'])
         self.context_toggle.currentIndexChanged.connect(self.refreshDropdowns)
 
         self.asset_dropdown = Qt.QComboBox()
+        self.asset_dropdown.currentIndexChanged.connect(self.refreshDropdowns)
 
         self.step_dropdown = Qt.QComboBox()
 
@@ -86,10 +87,15 @@ class PublishUI(Qt.QDialog):
         self.asset_steps = ["Model", "Texture", "Materials", "Rig", "Anim", "Crowd"]
         if current_context == 'Assets':
             self.step_dropdown.addItems(self.asset_steps)
+        elif current_context == 'Crowd':
+            crowds = getAllAssets(search_dir + '/%s'%self.asset_dropdown.currentText())
+            self.set_dropdown.addItems(crowds)
         else:
             self.step_dropdown.addItems(self.shot_steps)
 
     def exportAsset(self):
+        sel = pm.ls(sl=1)
+
         selected_asset = self.asset_dropdown.currentText()
         selected_step = self.step_dropdown.currentText()
         asset_dir = self.all_assets[selected_asset]
@@ -129,13 +135,22 @@ class PublishUI(Qt.QDialog):
             mel.eval('FBXExport -f "%s" -s'%(export_file))
             #pm.exportSelected(export_file, f=1, typ='FBX export', pr=1, es=1, options='groups=1;ptgroups=1;materials=1;smoothing=1;normals=1')
 
+
+            #cmds.glmExportMotion(outputFile='', fromRoot=str(sel[0]), characterFile='', automaticFootprints=True)
+
+        elif selected_step == 'Crowd':
+            start = pm.playbackOptions( q=True,min=True )
+            end = pm.playbackOptions( q=True,max=True )
+            cmds.glmCrowdSimulationExporter(startFrame=start, endFrame=end, crowdFieldNode=str(sel[0]),
+                                            exportFromCache=False, scExpAttrs=["particleId"], scExpName="testScene",
+                                            scExpOutDir="C:/Users/nick.tsimiklis/Documents/Nick/Projects/SWG/Assets/char_Wendy/Crowd/sim/v002")
         else:
             pm.exportSelected(export_file, f=1, typ='FBX export', pr=1, es=1,
                               options='groups=1;ptgroups=1;materials=1;smoothing=1;normals=1')
 
             abc_file = selected_asset + '_' + selected_step + '.abc'
             export_file = export_dir + '/' + abc_file
-            sel = pm.ls(sl=1)
+
             if sel:
                 root = '-root %s'%sel[0]
                 cmds.AbcExport(jobArg=r'-frameRange 0 0 -stripNamespaces -uvWrite -worldSpace -writeVisibility %s -wholeFrameGeo -file %s'%(root, export_file))
