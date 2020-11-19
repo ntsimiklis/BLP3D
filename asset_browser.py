@@ -10,6 +10,8 @@ from shiboken2 import wrapInstance
 
 import utils
 
+
+
 def maya_main_window():
 	main_window_ptr=OpenMayaUI.MQtUtil.mainWindow()
 	return wrapInstance(long(main_window_ptr), Qt.QWidget)
@@ -23,6 +25,11 @@ class mainUI(Qt.QDialog):
         # Right Layout
         right_layout = Qt.QHBoxLayout()
         self.tree_view = Qt.QTreeWidget()
+
+        #right click menu
+        self.tree_view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.tree_view.customContextMenuRequested.connect(partial(self.rightClick,parent))
+
         right_layout.addWidget(self.tree_view)
 
         self.tree_view.setHeaderLabels(['name', 'version', 'path'])
@@ -52,6 +59,20 @@ class mainUI(Qt.QDialog):
         self.setLayout(main_layout)
         self.updateTree()
         self.show()
+
+    def rightClick(self, parent, *args):
+        self.popup_menu = Qt.QMenu(parent)
+        self.popup_menu.addAction("Copy", self.copyToClipboard)
+        pos = QtGui.QCursor().pos()
+
+        self.popup_menu.exec_(parent.mapToGlobal(pos))
+
+    def copyToClipboard(self):
+        val = self.tree_view.selectedItems()
+        text = val[0].text(2)
+        cb = Qt.QApplication.clipboard()
+        cb.clear(mode=cb.Clipboard)
+        cb.setText(text, mode=cb.Clipboard)
 
     @QtCore.Slot(Qt.QComboBox)
     def updateTree(self, *args):
@@ -99,27 +120,29 @@ class mainUI(Qt.QDialog):
                         self.populateTree(task_dir, task, task_child)
 
 
-
     def populateTree(self,task_dir, task, task_child, *args):
         task_ver_list = None
         if os.path.isdir(task_dir):
             task_ver_list = self.getAllVersions(task_dir)
         if task_ver_list:
-            self.version_box = Qt.QComboBox()
-
-            for version in task_ver_list:
-                self.version_box.addItem(str(version))
-            self.version_box.setCurrentIndex(len(task_ver_list) - 1)
-
             ver = "v" + str(max(task_ver_list)).zfill(3)
             paths = self.getFiles(task_dir + ver, task)
             if paths:
-                child = Qt.QTreeWidgetItem(task_child, [" ", " ", str(paths[0])])
-                child.setFlags(child.flags() | QtCore.Qt.ItemIsEditable)
-                self.tree_view.setItemWidget(child, 1, self.version_box)
-                # partial(self.updatePathColumn(self.version_box, child))
-                # lambda widget = self.version_box: self.updatePathColumn(widget, child)
-                self.version_box.currentIndexChanged.connect(partial(self.updatePathColumn, self.version_box, child))
+                for path in paths:
+
+                    self.version_box = Qt.QComboBox()
+
+                    for version in task_ver_list:
+                        self.version_box.addItem(str(version))
+                    self.version_box.setCurrentIndex(len(task_ver_list) - 1)
+
+
+                    child = Qt.QTreeWidgetItem(task_child, [" ", " ", str(path)])
+                    child.setFlags(child.flags() | QtCore.Qt.ItemIsEditable)
+                    self.tree_view.setItemWidget(child, 1, self.version_box)
+                    # partial(self.updatePathColumn(self.version_box, child))
+                    # lambda widget = self.version_box: self.updatePathColumn(widget, child)
+                    self.version_box.currentIndexChanged.connect(partial(self.updatePathColumn, self.version_box, child))
 
     def updatePathColumn(self, widget, column, *args):
         #current_version = widget + 1
@@ -130,8 +153,8 @@ class mainUI(Qt.QDialog):
         current_context = self.context_toggle.currentText()
         ver_dir = self.show_dir + "/%s/%s/%s/%s"%(current_context, asset_name, task_name, ver)
         paths = self.getFiles(ver_dir, task_name)
-        if paths:
-            column.setText(2, str(paths[0]))
+        for path in paths:
+            column.setText(2, str(path))
 
     def importAsset(self):
         val = self.tree_view.selectedItems()
@@ -143,6 +166,7 @@ class mainUI(Qt.QDialog):
             return
 
         task = val[0].parent().text(0)
+        root = val[0].parent().parent().text(0)
         file = val[0].text(2)
         if task == 'Model':
             pm.AbcImport(file)
@@ -157,8 +181,49 @@ class mainUI(Qt.QDialog):
             pm.setAttr('%s.characterFile' % node,
                        '%s'%file)
             pm.setAttr('%s.renderFilter' % node, 3)
-        elif task == 'Sim':
+        elif task == 'Sim' or root == 'Caches':
             mel.eval('glmSimulationCacheLibraryCmd;')
+        elif task == 'Texture':
+            CON_DICT = {'BaseColor': 'baseColor', 'Roughness': 'specularRoughness', 'Normal': 'normalCamera'}
+
+            file_path = file
+
+            current_channel = file_path.split('_')[-1]
+            current_channel = current_channel.split('.')[0]
+            current_object = pm.ls(sl=1)
+            if current_object:
+                current_object = current_object[0]
+
+            pm.hyperShade(shaderNetworksSelectMaterialNodes=True)
+            material = None;
+            selected_material = material
+            for material in pm.selected(materials=True):
+                if [c for c in material.classification() if 'shader/surface' in c]:
+                    selected_material = material
+                    break
+
+            if material:
+                connections = pm.listConnections(material)
+                file_node = None
+                for connection in connections:
+                    if current_channel in str(connection):
+                        file_node = connection
+
+                if not file_node:
+                    file_node = pm.shadingNode('file', asTexture=True, n=current_channel)
+
+                    if current_channel == 'Normal':
+                        normal_node = pm.shadingNode('aiNormalMap', asUtility=True, n='NormalMap')
+                        pm.connectAttr('%s.outColor' % file_node, '%s.input' % normal_node)
+                        pm.connectAttr('%s.outValue' % normal_node, '%s.%s' % (material, CON_DICT[current_channel]))
+                    elif current_channel == 'Roughness':
+                        pm.connectAttr('%s.outColor.outColorR' % file_node,
+                                       '%s.%s' % (material, CON_DICT[current_channel]))
+                    else:
+                        pm.connectAttr('%s.outColor' % file_node, '%s.%s' % (material, CON_DICT[current_channel]))
+
+                pm.setAttr('%s.fileTextureName' % file_node, file_path, type="string")
+            pm.select(current_object)
         elif task == 'Plate':
             camera = pm.ls(sl=1)
             if camera:

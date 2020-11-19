@@ -56,7 +56,7 @@ class PublishUI(Qt.QDialog):
         self.context_toggle.currentIndexChanged.connect(self.refreshDropdowns)
 
         self.asset_dropdown = Qt.QComboBox()
-        self.asset_dropdown.currentIndexChanged.connect(self.refreshDropdowns)
+        self.asset_dropdown.currentIndexChanged.connect(self.refreshStep)
 
         self.step_dropdown = Qt.QComboBox()
 
@@ -75,6 +75,18 @@ class PublishUI(Qt.QDialog):
         self.refreshDropdowns()
         self.show()
 
+    def refreshStep(self):
+
+        current_context = self.context_toggle.currentText()
+        if current_context != 'Crowd':
+            return
+        self.step_dropdown.clear()
+        current_task = self.asset_dropdown.currentText()
+        task_dir = self.show_dir + '/Crowd/%s'%current_task
+        crowd_assets = getAllAssets(task_dir)
+        for crowd_asset in crowd_assets:
+            self.step_dropdown.addItem(crowd_asset)
+
     def refreshDropdowns(self):
         self.asset_dropdown.clear()
         self.step_dropdown.clear()
@@ -89,7 +101,7 @@ class PublishUI(Qt.QDialog):
             self.step_dropdown.addItems(self.asset_steps)
         elif current_context == 'Crowd':
             crowds = getAllAssets(search_dir + '/%s'%self.asset_dropdown.currentText())
-            self.set_dropdown.addItems(crowds)
+            pass
         else:
             self.step_dropdown.addItems(self.shot_steps)
 
@@ -124,10 +136,11 @@ class PublishUI(Qt.QDialog):
             version_name = 'v' + padded_number
             export_dir = task_dir + '/' + version_name
             os.makedirs(export_dir)
-        file_name = selected_asset + '_' + selected_step + version_name
+        file_name = selected_asset + '_' + selected_step + '_' + version_name
         export_file = export_dir + '/' + file_name
 
-        if selected_step == 'Anim':
+        if selected_step == 'Anim' or selected_asset == 'Motions':
+
             start = pm.playbackOptions( q=True,min=True )
             end = pm.playbackOptions( q=True,max=True )
             mel.eval("FBXExportSplitAnimationIntoTakes -clear;")
@@ -135,15 +148,46 @@ class PublishUI(Qt.QDialog):
             mel.eval('FBXExport -f "%s" -s'%(export_file))
             #pm.exportSelected(export_file, f=1, typ='FBX export', pr=1, es=1, options='groups=1;ptgroups=1;materials=1;smoothing=1;normals=1')
 
+            if selected_asset == 'Motions':
+                self.dialog = Qt.QDialog()
+                layout = Qt.QFormLayout()
 
-            #cmds.glmExportMotion(outputFile='', fromRoot=str(sel[0]), characterFile='', automaticFootprints=True)
+                self.dialog.setWindowTitle("Character Select")
+                self.files = []
+                self.assets_dir = utils.getWorkspace() + '/Assets'
+                asset_list = getAllAssets(self.assets_dir)
+                self.asset_box = Qt.QComboBox()
+                for asset in sorted(asset_list):
+                    self.asset_box.addItem(asset)
+                self.asset_box.currentIndexChanged.connect(self.getAssetChars)
 
-        elif selected_step == 'Crowd':
+                self.char_box = Qt.QComboBox()
+
+                layout = Qt.QVBoxLayout()
+
+                self.create_shot_button = Qt.QPushButton("Select")
+                self.create_shot_button.clicked.connect(self.selectChar)
+                layout.addWidget(self.asset_box)
+                layout.addWidget(self.char_box)
+                layout.addWidget(self.create_shot_button)
+
+                self.getAssetChars()
+                self.dialog.setLayout(layout)
+
+                ans = self.dialog.exec_()
+                gcha_file = self.files[-1]
+
+                gmo_file = export_file + '.gmo'
+                cmds.glmExportMotion(outputFile=gmo_file, fromRoot=str(sel[0]), characterFile=gcha_file, automaticFootprints=True)
+
+        elif selected_asset == 'Caches':
+
             start = pm.playbackOptions( q=True,min=True )
             end = pm.playbackOptions( q=True,max=True )
             cmds.glmCrowdSimulationExporter(startFrame=start, endFrame=end, crowdFieldNode=str(sel[0]),
-                                            exportFromCache=False, scExpAttrs=["particleId"], scExpName="testScene",
-                                            scExpOutDir="C:/Users/nick.tsimiklis/Documents/Nick/Projects/SWG/Assets/char_Wendy/Crowd/sim/v002")
+                                            exportFromCache=False, scExpAttrs=["particleId"], scExpName=selected_step,
+                                            scExpOutDir=export_dir)
+
         else:
             pm.exportSelected(export_file, f=1, typ='FBX export', pr=1, es=1,
                               options='groups=1;ptgroups=1;materials=1;smoothing=1;normals=1')
@@ -161,7 +205,31 @@ class PublishUI(Qt.QDialog):
             pm.exportSelected(export_file, f=1, typ='mayaBinary', pr=1, es=1,
                               options='groups=1;ptgroups=1;materials=1;smoothing=1;normals=1')
 
+    def selectChar(self):
+        self.dialog.close()
 
+    def getCharFile(self, base_dir):
+        extension = 'gcha'
+        file_list = []
+        for f in os.listdir(base_dir):
+            f_ext = f.split('.')[-1]
+            if f_ext == extension:
+                file_list.append(f)
+                file_list.append(base_dir + '/' + f)
+
+        return file_list
+
+    def getAssetChars(self):
+        self.char_box.clear()
+        current_asset = self.asset_box.currentText()
+        current_dir = self.assets_dir + '/%s/Crowd/Character'%current_asset
+        if os.path.isdir(current_dir):
+            versions = getAllVersions(current_dir)
+            greatest = max(versions.keys())
+            ver = "v" + str(greatest).zfill(3)
+            ver_dir = current_dir + '/%s'%ver
+            self.files = self.getCharFile(ver_dir)
+            self.char_box.addItem(self.files[0])
 
 def run():
     main_window = maya_main_window()
