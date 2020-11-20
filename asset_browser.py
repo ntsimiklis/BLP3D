@@ -257,7 +257,7 @@ class mainUI(Qt.QDialog):
         TASK_EXTENSIONS = {'Model':'abc', "Texture":"png", "Plate":"png", "Materials":"mb",
                            "Rig":"mb", "Anim":"fbx", "Crowd":"gscb", "Light":"mb", "Camera":"mb",
                            'Motion':"gmo", 'Character':"gcha", 'Geo':"gcg", 'Material':"mb", 'Sim':"gscb",
-                           'Caches':'gscb', 'Motions':'fbx'}
+                           'Caches':'gscb', 'Motions':'gmo'}
         extension = TASK_EXTENSIONS[task]
         if task == 'Texture' or task == 'Plate':
             return self.getFileSequence(base_dir, extension)

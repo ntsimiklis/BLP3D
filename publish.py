@@ -187,6 +187,9 @@ class PublishUI(Qt.QDialog):
             cmds.glmCrowdSimulationExporter(startFrame=start, endFrame=end, crowdFieldNode=str(sel[0]),
                                             exportFromCache=False, scExpAttrs=["particleId"], scExpName=selected_step,
                                             scExpOutDir=export_dir)
+        elif selected_step == 'Materials':
+            pm.exportSelected(export_file, f=1, typ='mayaBinary', pr=1, es=1,
+                              options='groups=1;ptgroups=1;materials=1;smoothing=1;normals=1')
 
         else:
             pm.exportSelected(export_file, f=1, typ='FBX export', pr=1, es=1,
