@@ -121,8 +121,8 @@ class mainUI(Qt.QDialog):
         self.new_shot_button = Qt.QPushButton('New Shot')
         self.new_shot_button.clicked.connect(self.newShot)
 
-        self.new_shot_button = Qt.QPushButton('New Crowd')
-        self.new_shot_button.clicked.connect(self.newCrowd)
+        self.new_crowd_button = Qt.QPushButton('New Crowd')
+        self.new_crowd_button.clicked.connect(self.newCrowd)
 
         self.update_button = Qt.QPushButton('Refresh')
         self.update_button.clicked.connect(self.updateTree)
@@ -131,11 +131,10 @@ class mainUI(Qt.QDialog):
         self.dropdown = Qt.QComboBox()
         self.dropdown.addItems(['SWG', 'Bank'])
 
-
-
         left_layout.addWidget(self.dropdown)
         left_layout.addWidget(self.new_asset_button)
         left_layout.addWidget(self.new_shot_button)
+        left_layout.addWidget(self.new_crowd_button)
         left_layout.addWidget(self.update_button)
 
 

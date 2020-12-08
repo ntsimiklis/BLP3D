@@ -172,7 +172,7 @@ class mainUI(Qt.QDialog):
             pm.AbcImport(file)
         elif task == 'Anim':
             pm.FBXImport('-file', file, '-s')
-        elif task == 'Rig':
+        elif task == 'Rig' or task == 'Materials':
             pm.createReference(file)
         elif task == 'Character':
             mel.eval('addTheCrowdManagerNode;')
@@ -275,7 +275,7 @@ class mainUI(Qt.QDialog):
         for f in os.listdir(base_dir):
             f_ext = f.split('.')[-1]
             tkns = f.split('.')
-            if f_ext == extension:
+            if f_ext == extension or f_ext == 'tif':
                 if tkns[-2] == '1001':
                     #fseq = tkns[0] + ".<UDIM>." + tkns[-1]
                     file_list.append(base_dir + '/' + f)
